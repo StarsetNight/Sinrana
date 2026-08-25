@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sinrana — Admin WebUI</title>
+<style>
+  :root {
+    --bg: #11131a; --panel: #1a1e2b; --panel2: #232840; --border: #2c3350;
+    --text: #e6e9f2; --muted: #9aa3bf; --accent: #5b8cff; --ok: #3dd68c;
+    --warn: #f0b429; --err: #ff5d6c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+  header { display: flex; align-items: center; gap: 18px; padding: 12px 22px;
+           background: var(--panel); border-bottom: 1px solid var(--border); }
+  header .brand { font-weight: 700; letter-spacing: .5px; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  header .spacer { flex: 1; }
+  nav button { background: var(--panel2); color: var(--muted); border: 1px solid var(--border);
+               padding: 6px 14px; cursor: pointer; border-radius: 6px; }
+  nav button.active { color: var(--accent); border-color: var(--accent); }
+  main { display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 18px 22px; min-height: calc(100vh - 54px); }
+  aside { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  aside h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+  aside .stat { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  aside .stat b { color: var(--accent); }
+  section.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: none; }
+  section.panel.active { display: block; }
+  section.panel h2 { margin: 0 0 14px; font-size: 16px; }
+  .online li, .rooms li { padding: 6px 0; border-bottom: 1px dashed var(--border); list-style: none; }
+  .role { font-size: 11px; color: var(--muted); }
+  .role.admin { color: var(--err); } .role.manager { color: var(--warn); }
+  .term { display: flex; flex-direction: column; height: calc(100vh - 130px); background: #0d0f16; border: 1px solid var(--border); border-radius: 8px; }
+  .term .out { flex: 1; overflow-y: auto; padding: 12px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+  .term .out .sys { color: var(--muted); } .term .out .chat { color: var(--text); }
+  .term .out .err { color: var(--err); } .term .out .notice { color: var(--warn); }
+  .term .inp { display: flex; border-top: 1px solid var(--border); }
+  .term .inp input { flex: 1; background: var(--panel2); color: var(--text); border: 0; padding: 12px; font: inherit; outline: none; }
+  .term .inp button { background: var(--accent); color: #fff; border: 0; padding: 0 20px; cursor: pointer; font: inherit; }
+  form.config .row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; align-items: center; padding: 6px 0; }
+  form.config label { color: var(--muted); }
+  form.config input, form.config select { background: var(--panel2); color: var(--text); border: 1px solid var(--border); padding: 7px 10px; border-radius: 6px; font: inherit; }
+  .btn { background: var(--accent); color: #fff; border: 0; padding: 8px 16px; border-radius: 6px; cursor: pointer; font: inherit; }
+  .status { margin-left: 10px; font-size: 12px; }
+  #login { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  #login .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px; width: min(360px, 90vw); }
+  #login h1 { font-size: 18px; margin: 0 0 16px; }
+  #login label { display: block; color: var(--muted); margin: 10px 0 4px; }
+  #login input { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 6px; font: inherit; }
+  #login button { width: 100%; margin-top: 16px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="login">
+  <form class="card" id="loginform">
+    <h1>Sinrana Admin</h1>
+    <label>Username</label><input id="luser" autocomplete="username" value="admin" />
+    <label>Password</label><input id="lpass" type="password" autocomplete="current-password" />
+    <button class="btn" type="submit">Sign in</button>
+    <div class="status" id="loginmsg"></div>
+  </form>
+</div>
+
+<header>
+  <div class="brand">SINRANA</div>
+  <div class="meta" id="servermeta">…</div>
+  <div class="spacer"></div>
+  <nav>
+    <button id="tab-term" class="active" data-panel="term">Terminal</button>
+    <button id="tab-monitor" data-panel="monitor">Monitor</button>
+    <button id="tab-config" data-panel="config">Config</button>
+  </nav>
+</header>
+
+<main>
+  <aside>
+    <h3>Server</h3>
+    <div class="stat"><span>Protocol</span><b id="s-protocol">–</b></div>
+    <div class="stat"><span>Version</span><b id="s-version">–</b></div>
+    <div class="stat"><span>Rooms</span><b id="s-rooms">–</b></div>
+    <div class="stat"><span>Online</span><b id="s-online">–</b></div>
+    <div class="stat"><span>Uptime</span><b id="s-uptime">–</b></div>
+    <h3 style="margin-top:16px">Online users</h3>
+    <ul class="online" id="online-list"><li class="role">none</li></ul>
+    <h3 style="margin-top:16px">Rooms</h3>
+    <ul class="rooms" id="rooms-list"><li class="role">none</li></ul>
+  </aside>
+
+  <section class="panel active" id="p-term">
+    <h2>Root terminal</h2>
+    <p class="status">Chat as <b>Server</b> (broadcast), or run admin commands (<code>/help</code>).</p>
+    <div class="term">
+      <div class="out" id="term-out"></div>
+      <div class="inp">
+        <input id="term-input" placeholder="message or /command" />
+        <button id="term-send">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-monitor">
+    <h2>Monitor</h2>
+    <button class="btn" id="refresh">Refresh</button> <span class="status">live via WebSocket/SSE</span>
+    <div id="monitor-body" style="margin-top:12px"></div>
+  </section>
+
+  <section class="panel" id="p-config">
+    <h2>Server config</h2>
+    <p class="status">Edits below are saved to <code>server/config.toml</code>. Runtime-safe fields apply immediately; others need a restart.</p>
+    <form class="config" id="configform"></form>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let token = null, ws = null, wsOpen = false, pollTimer = null;
+
+// ---- 登录 ----
+$("#loginform").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = $("#luser").value, password = $("#lpass").value;
+  const r = await fetch("/api/login", { method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({username, password}) });
+  const j = await r.json();
+  if (!r.ok) { $("#loginmsg").textContent = j.error || "login failed"; return; }
+  token = j.token;
+  $("#login").classList.add("hidden");
+  connect();
+  refreshAll();
+});
+
+function bearer() { return { Authorization: "Bearer " + token }; }
+async function api(path, opts = {}) {
+  return fetch(path, { ...opts, headers: { ...bearer(), ...(opts.headers||{}) } });
+}
+
+// ---- 标签页 ----
+document.querySelectorAll("nav button").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    document.querySelectorAll("section.panel").forEach((x) => x.classList.remove("active"));
+    $("#p-" + b.dataset.panel).classList.add("active");
+    if (b.dataset.panel === "monitor") refreshMonitor();
+  });
+});
+
+// ---- 终端 ----
+function termLine(cls, text) {
+  const div = document.createElement("div");
+  div.className = cls; div.textContent = text;
+  $("#term-out").appendChild(div);
+  $("#term-out").scrollTop = $("#term-out").scrollHeight;
+}
+$("#term-send").addEventListener("click", sendLine);
+$("#term-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendLine(); });
+function sendLine() {
+  const line = $("#term-input").value; $("#term-input").value = "";
+  if (!line.trim() || !ws || !wsOpen) return;
+  if (line.startsWith("/")) {
+    ws.send(JSON.stringify({ type: "cmd", line }));
+    termLine("sys", "> " + line);
+  } else {
+    ws.send(JSON.stringify({ type: "chat", body: line }));
+    termLine("notice", "[Server] " + line);
+  }
+}
+$("#term-input").placeholder = "message (broadcasts to default room) or /command (/help)";
+
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`);
+  ws.onopen = () => { wsOpen = true; termLine("sys", "— connected —"); };
+  ws.onclose = () => { wsOpen = false; termLine("sys", "— disconnected (reconnecting…) —"); setTimeout(connect, 2000); };
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.type === "hello") {
+      $("#s-protocol").textContent = m.info.protocol;
+      $("#s-version").textContent = "v" + m.info.version;
+      $("#s-rooms").textContent = m.info.rooms;
+      $("#s-online").textContent = m.info.online;
+      termLine("sys", "Welcome " + m.username);
+    } else if (m.type === "chat_ack") { /* 已由发送方回显 */ }
+    else if (m.type === "event") { if (m.payload && m.payload.t === "chat.text") termLine("chat", `[${m.payload.room}] ${m.payload.from}: ${m.payload.body}`); else if (m.payload && m.payload.t === "sys.notice") termLine("notice", m.payload.text); }
+    else if (m.type === "notice") termLine("notice", m.text);
+    else if (m.type === "info") { $("#s-uptime").textContent = fmtUp(m.uptime_ms); $("#s-rooms").textContent = m.rooms; $("#s-online").textContent = m.online; }
+    else if (m.type === "error") termLine("err", m.text);
+    else if (m.type === "rooms") renderRooms(m.rooms);
+    else if (m.type === "online") renderOnline(m.users);
+  };
+}
+
+function fmtUp(ms) {
+  const s = Math.floor(ms/1000); const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), mi = Math.floor((s%3600)/60);
+  return (d?d+"d ":"") + (h?h+"h ":"") + (mi?mi+"m ":"") + (s%60)+"s";
+}
+
+// ---- 监控 ----
+async function refreshAll() {
+  if (!token) return;
+  const [info, online, rooms] = await Promise.all([
+    api("/api/info").then(r=>r.json()), api("/api/online").then(r=>r.json()), api("/api/rooms").then(r=>r.json())
+  ]);
+  $("#s-protocol").textContent = info.protocol;
+  $("#s-version").textContent = "v" + info.version;
+  $("#s-rooms").textContent = info.rooms; $("#s-online").textContent = info.online;
+  $("#s-uptime").textContent = fmtUp(info.uptime_ms);
+  $("#servermeta").textContent = `v${info.version} · ${info.bind_addr} · web ${info.web_addr}`;
+  renderOnline(online.users); renderRooms(rooms.rooms);
+  renderMonitor(info, online.users, rooms.rooms);
+  renderConfig();
+}
+function renderOnline(users) {
+  const ul = $("#online-list"); ul.innerHTML = "";
+  (users||[]).forEach(u => { const li=document.createElement("li"); li.textContent=u.username; const r=document.createElement("span"); r.className="role "+(u.role||""); r.textContent=" "+(u.role||""); li.appendChild(r); ul.appendChild(li); });
+  if (!users || !users.length) ul.innerHTML = '<li class="role">none</li>';
+}
+function renderRooms(rooms) {
+  const ul = $("#rooms-list"); ul.innerHTML = "";
+  (rooms||[]).forEach(r => { const li=document.createElement("li"); li.textContent=r.name+" ("+r.members+")"; ul.appendChild(li); });
+  if (!rooms || !rooms.length) ul.innerHTML = '<li class="role">none</li>';
+}
+function renderMonitor(info, users, rooms) {
+  let h = `<h3>Snapshot</h3><table style="width:100%;text-align:left">`;
+  h += `<tr><td>Name</td><td>${info.name}</td></tr><tr><td>Version</td><td>${info.version}</td></tr>`;
+  h += `<tr><td>Protocol</td><td>${info.protocol}</td></tr><tr><td>Bind</td><td>${info.bind_addr}</td></tr>`;
+  h += `<tr><td>WebUI</td><td>${info.web_addr}</td></tr><tr><td>DB</td><td>${info.db_path}</td></tr>`;
+  h += `<tr><td>Default room</td><td>${info.default_room}</td></tr><tr><td>Server seq</td><td>${info.server_seq}</td></tr>`;
+  h += `</table>`;
+  h += `<h3 style="margin-top:16px">Online (${(users||[]).length})</h3><ul>`;
+  (users||[]).forEach(u => h += `<li>${u.username} <span class="role ${u.role}">${u.role}</span></li>`);
+  h += `</ul><h3 style="margin-top:16px">Rooms (${(rooms||[]).length})</h3><ul>`;
+  (rooms||[]).forEach(r => h += `<li>${r.name} — ${r.members} members</li>`);
+  h += `</ul>`;
+  $("#monitor-body").innerHTML = h;
+}
+async function refreshMonitor() {
+  const info = await api("/api/info").then(r=>r.json());
+  const online = await api("/api/online").then(r=>r.json());
+  const rooms = await api("/api/rooms").then(r=>r.json());
+  renderMonitor(info, online.users, rooms.rooms);
+  renderOnline(online.users); renderRooms(rooms.rooms);
+  $("#s-online").textContent = info.online; $("#s-rooms").textContent = info.rooms;
+}
+$("#refresh").addEventListener("click", refreshMonitor);
+
+// ---- 配置 ----
+async function renderConfig() {
+  const j = await api("/api/config").then(r=>r.json());
+  const cfg = j.config;
+  const fields = [
+    ["default_room","text",cfg.default_room,true],
+    ["allow_register","bool",cfg.allow_register,true],
+    ["force_account","bool",cfg.force_account,true],
+    ["lock_server","bool",cfg.lock_server,true],
+    ["record_history","bool",cfg.record_history,true],
+    ["web_enabled","bool",cfg.web_enabled,true],
+    ["bind_addr","text",cfg.bind_addr,false],
+    ["web_addr","text",cfg.web_addr,false],
+    ["db_path","text",cfg.db_path,false],
+  ];
+  let h = `<div class="row"><label>&nbsp;</label><div class="status">Runtime-safe fields marked *</div></div>`;
+  fields.forEach(([k,type,val,runtime]) => {
+    const label = (runtime ? k + " *" : k) + (runtime ? "" : " (restart)");
+    if (type === "bool") h += `<div class="row"><label>${label}</label><select data-k="${k}" data-type="bool"><option ${val?"selected":""} value="true">true</option><option ${!val?"selected":""} value="false">false</option></select></div>`;
+    else h += `<div class="row"><label>${label}</label><input data-k="${k}" value="${val}"/></div>`;
+  });
+  h += `<div class="row"><label></label><button class="btn" type="submit">Save config</button><span class="status" id="cfgmsg"></span></div>`;
+  $("#configform").innerHTML = h;
+}
+$("#configform").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const cfg = {};
+  document.querySelectorAll("#configform [data-k]").forEach(el => {
+    const k = el.dataset.k, t = el.dataset.type;
+    cfg[k] = t === "bool" ? el.value === "true" : el.value;
+  });
+  const r = await api("/api/config", { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg}) });
+  const j = await r.json();
+  $("#cfgmsg").textContent = r.ok ? ("saved; runtime: "+(j.runtime_fields||[]).join(", ")) : (j.error||"failed");
+});
+
+setInterval(() => { if (token) refreshAll(); }, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+[package]
+name = "sinrana-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sinrana CLI client: talks to a Sinrana server over QUIC."
+
+[dependencies]
+sinrana-proto = { path = "../proto", features = ["transport-quic"] }
+serde.workspace = true
+clap.workspace = true
+tokio.workspace = true
+quinn.workspace = true
+rustls.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+sinrana-server = { path = "../server" }

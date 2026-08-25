@@ -1,0 +1,42 @@
+[package]
+name = "sinrana-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sinrana reference server: a standard async QUIC chat server."
+
+[lib]
+name = "sinrana_server"
+path = "src/lib.rs"
+
+[features]
+default = ["web"]
+# 管理员 WebUI（axum HTTP + WebSocket）。通过 feature 门控，使核心 QUIC 服务器
+# 即使在离线、axum 依赖闭包尚不可用时也能构建。
+web = ["dep:axum", "dep:futures-util"]
+
+[[bin]]
+name = "sinrana-server"
+path = "src/main.rs"
+
+[dependencies]
+sinrana-proto = { path = "../proto", features = ["transport-quic"] }
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+clap.workspace = true
+tokio.workspace = true
+quinn.workspace = true
+rustls.workspace = true
+rcgen.workspace = true
+argon2.workspace = true
+rand.workspace = true
+rusqlite.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+axum = { workspace = true, optional = true, features = ["ws"] }
+futures-util = { version = "=0.3.33", optional = true }
+
+[dev-dependencies]
+serde_json.workspace = true

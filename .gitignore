@@ -1,0 +1,31 @@
+# --- Rust / Cargo ---
+/target
+Cargo.lock
+
+# --- IDE ---
+.idea/
+.vs/
+.vscode/
+
+# --- Runtime / user data ---
+logs/
+server/config.toml
+server/certs/
+server/data/
+
+# --- Secrets ---
+*.pem
+*.key
+*.p12
+*.pfx
+
+# --- OS ---
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# --- Misc scratch ---
+*.swp
+*~
+.cache/
+.smoke/

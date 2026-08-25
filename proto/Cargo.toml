@@ -1,0 +1,22 @@
+[package]
+name = "sinrana-proto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sinrana open chat protocol: single source of truth for the QUIC + msgpack wire protocol."
+
+[features]
+default = []
+# 启用基于 QUIC 的 Transport 实现。保留为可选，以便核心
+# 协议类型和编解码器保持可移植且依赖精简。
+transport-quic = ["dep:quinn", "dep:tokio"]
+
+[dependencies]
+serde.workspace = true
+rmp-serde.workspace = true
+thiserror.workspace = true
+quinn = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json.workspace = true
